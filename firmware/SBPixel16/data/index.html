@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBPixel16</title>
+<style>
+  body { font-family: sans-serif; margin: 2em; background: #1a1a2e; color: #e0e0e0; }
+  h1   { color: #e94560; }
+  nav a { color: #e94560; margin-right: 1.5em; text-decoration: none; font-weight: bold; }
+  .card { background: #16213e; border-radius: 8px; padding: 1.5em; margin-top: 1.5em; max-width: 480px; }
+  .stat { display: flex; justify-content: space-between; padding: 0.5em 0; border-bottom: 1px solid #0f3460; }
+  .stat:last-child { border-bottom: none; }
+  .val { color: #e94560; font-size: 1.4em; font-weight: bold; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px;
+           background: #0f3460; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<h1>SBPixel16</h1>
+<nav>
+  <a href="index.html">Dashboard</a>
+  <a href="ports.html">Ports</a>
+  <a href="network.html">Network</a>
+  <a href="ota.html">OTA</a>
+</nav>
+<div class="card">
+  <div class="stat"><span>Output FPS</span>      <span class="val" id="fps">—</span></div>
+  <div class="stat"><span>Protocol</span>        <span id="proto" class="badge">—</span></div>
+  <div class="stat"><span>E1.31 packets</span>   <span class="val" id="e131">—</span></div>
+  <div class="stat"><span>DDP packets</span>     <span class="val" id="ddp">—</span></div>
+  <div class="stat"><span>VIN1</span>            <span class="val" id="vin1">—</span></div>
+  <div class="stat"><span>VIN2</span>            <span class="val" id="vin2">—</span></div>
+  <div class="stat"><span>Test mode</span>       <span id="test" class="badge">OFF</span></div>
+</div>
+<script>
+const TEST_NAMES = ['OFF','RED','GREEN','BLUE','RAINBOW'];
+function fmtV(mv) { return (mv/1000).toFixed(2) + ' V'; }
+function poll() {
+  fetch('/api/status').then(r => r.json()).then(d => {
+    document.getElementById('fps').textContent   = d.fps;
+    document.getElementById('e131').textContent  = d.e131Packets;
+    document.getElementById('ddp').textContent   = d.ddpPackets;
+    document.getElementById('vin1').textContent  = fmtV(d.vin1_mv);
+    document.getElementById('vin2').textContent  = fmtV(d.vin2_mv);
+    const p = document.getElementById('proto');
+    p.textContent = d.protocol.toUpperCase();
+    p.style.background = d.protocol === 'ddp' ? '#533483' : '#0f3460';
+    const t = document.getElementById('test');
+    t.textContent = TEST_NAMES[d.testMode] || 'OFF';
+    t.style.background = d.testMode ? '#7a1e2e' : '#0f3460';
+  }).catch(() => {});
+}
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBPixel16 — OTA</title>
+<style>
+  body  { font-family: sans-serif; margin: 2em; background: #1a1a2e; color: #e0e0e0; }
+  h1    { color: #e94560; }
+  nav a { color: #e94560; margin-right: 1.5em; text-decoration: none; font-weight: bold; }
+  .card { background: #16213e; border-radius: 8px; padding: 1.5em; margin-top: 1.5em; max-width: 480px; }
+  h2    { margin-top: 0; color: #c0c0c0; font-size: 1em; text-transform: uppercase; letter-spacing: .05em; }
+  label { display: block; margin-bottom: .5em; }
+  input[type=file] { color: #e0e0e0; }
+  button { margin-top: .8em; padding: .5em 1.4em; background: #e94560; color: #fff;
+           border: none; border-radius: 6px; cursor: pointer; font-size: .95em; }
+  button:disabled { background: #555; cursor: default; }
+  button.danger { background: #7a1e2e; }
+  .status { margin-top: .6em; font-size: .9em; min-height: 1.2em; }
+  progress { width: 100%; margin-top: .5em; display: none; }
+</style>
+</head>
+<body>
+<h1>SBPixel16</h1>
+<nav>
+  <a href="index.html">Dashboard</a>
+  <a href="ports.html">Ports</a>
+  <a href="network.html">Network</a>
+  <a href="ota.html">OTA</a>
+</nav>
+
+<div class="card">
+  <h2>Firmware Update</h2>
+  <label>Select firmware .bin file<br>
+    <input type="file" id="fwFile" accept=".bin">
+  </label>
+  <button id="fwBtn" onclick="upload('fwFile','/api/ota/firmware','fwBtn','fwProg','fwStatus')">Upload Firmware</button>
+  <progress id="fwProg"></progress>
+  <div class="status" id="fwStatus"></div>
+</div>
+
+<div class="card">
+  <h2>Filesystem Update</h2>
+  <label>Select filesystem .bin file<br>
+    <input type="file" id="fsFile" accept=".bin">
+  </label>
+  <button id="fsBtn" onclick="upload('fsFile','/api/ota/filesystem','fsBtn','fsProg','fsStatus')">Upload Filesystem</button>
+  <progress id="fsProg"></progress>
+  <div class="status" id="fsStatus"></div>
+</div>
+
+<div class="card">
+  <h2>Device Control</h2>
+  <button class="danger" id="rebootBtn" onclick="reboot()">Reboot</button>
+  <div class="status" id="rebootStatus"></div>
+</div>
+
+<script>
+function upload(fileId, url, btnId, progId, statusId) {
+  const file = document.getElementById(fileId).files[0];
+  if (!file) { document.getElementById(statusId).textContent = 'Select a file first.'; return; }
+  const btn  = document.getElementById(btnId);
+  const prog = document.getElementById(progId);
+  const stat = document.getElementById(statusId);
+  btn.disabled = true;
+  prog.style.display = 'block';
+  prog.value = 0;
+  stat.textContent = 'Uploading…';
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', url);
+  xhr.upload.onprogress = e => { if (e.lengthComputable) prog.value = e.loaded / e.total; };
+  xhr.onload = () => {
+    prog.style.display = 'none';
+    if (xhr.status === 200) {
+      stat.textContent = 'Done — rebooting…';
+    } else {
+      try { stat.textContent = 'Error: ' + JSON.parse(xhr.responseText).error; }
+      catch { stat.textContent = 'Upload failed (' + xhr.status + ')'; }
+      btn.disabled = false;
+    }
+  };
+  xhr.onerror = () => {
+    prog.style.display = 'none';
+    stat.textContent = 'Network error';
+    btn.disabled = false;
+  };
+  const fd = new FormData();
+  fd.append('file', file);
+  xhr.send(fd);
+}
+
+function reboot() {
+  const btn  = document.getElementById('rebootBtn');
+  const stat = document.getElementById('rebootStatus');
+  btn.disabled = true;
+  stat.textContent = 'Rebooting…';
+  fetch('/api/reboot', { method: 'POST' })
+    .then(() => stat.textContent = 'Rebooted.')
+    .catch(() => stat.textContent = 'Sent.');
+}
+</script>
+</body>
+</html>

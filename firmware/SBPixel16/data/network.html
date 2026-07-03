@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBPixel16 — Network</title>
+<style>
+  body  { font-family: sans-serif; margin: 2em; background: #1a1a2e; color: #e0e0e0; }
+  h1    { color: #e94560; }
+  nav a { color: #e94560; margin-right: 1.5em; text-decoration: none; font-weight: bold; }
+  .card { background: #16213e; border-radius: 8px; padding: 1.5em;
+          margin-top: 1.5em; max-width: 440px; }
+  label { display: block; margin-bottom: 0.3em; color: #aaa; font-size: 0.9em; }
+  input[type=text], input[type=number] {
+    width: 100%; box-sizing: border-box;
+    background: #0f3460; color: #e0e0e0;
+    border: 1px solid #e94560; border-radius: 4px;
+    padding: 6px 8px; margin-bottom: 1em;
+  }
+  .row  { display: flex; gap: 1em; }
+  .row > div { flex: 1; }
+  fieldset { border: 1px solid #0f3460; border-radius: 6px; margin-bottom: 1em; padding: 0.8em 1em; }
+  legend   { color: #e94560; font-weight: bold; padding: 0 0.4em; }
+  .radio-row { display: flex; gap: 2em; align-items: center; margin-bottom: 0.8em; }
+  .radio-row label { color: #e0e0e0; font-size: 1em; margin-bottom: 0; }
+  #e131opts { margin-top: 0.5em; }
+  .toggle-row { display: flex; align-items: center; gap: 0.6em; margin-bottom: 1em; }
+  .toggle-row label { color: #e0e0e0; font-size: 1em; margin: 0; }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: #e94560; cursor: pointer; }
+  button { padding: 0.6em 2em; background: #e94560; color: #fff;
+           border: none; border-radius: 6px; cursor: pointer; font-size: 1em; }
+  button:hover { background: #c73652; }
+  #msg  { margin-top: 1em; font-weight: bold; min-height: 1.4em; }
+  .ok   { color: #4caf50; }
+  .err  { color: #e94560; }
+</style>
+</head>
+<body>
+<h1>SBPixel16</h1>
+<nav>
+  <a href="index.html">Dashboard</a>
+  <a href="ports.html">Ports</a>
+  <a href="network.html">Network</a>
+  <a href="ota.html">OTA</a>
+</nav>
+<div class="card">
+  <fieldset>
+    <legend>IP Address</legend>
+    <div class="toggle-row">
+      <input type="checkbox" id="dhcp" onchange="toggleDhcp(this.checked)">
+      <label for="dhcp">Use DHCP (auto-assign IP)</label>
+    </div>
+    <div id="staticFields">
+      <label>IP Address</label>
+      <input type="text" id="ip" placeholder="192.168.1.200">
+      <div class="row">
+        <div><label>Subnet Mask</label><input type="text" id="subnet" placeholder="255.255.255.0"></div>
+        <div><label>Gateway</label>    <input type="text" id="gw"     placeholder="192.168.1.1"></div>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Input Protocol</legend>
+    <div class="radio-row">
+      <label><input type="radio" name="proto" value="0" id="r_e131"> E1.31 (sACN)</label>
+      <label><input type="radio" name="proto" value="1" id="r_ddp">  DDP</label>
+    </div>
+    <div id="e131opts">
+      <div class="row">
+        <div><label>Universe Start</label><input type="number" id="ustart" min="1" max="63999"></div>
+        <div><label>Universe Size</label> <input type="number" id="usize"  min="1" max="512"></div>
+      </div>
+    </div>
+  </fieldset>
+
+  <button onclick="save()">Save &amp; Apply</button>
+  <div id="msg"></div>
+  <p style="font-size:0.85em;color:#888;margin-top:1em;">
+    IP changes take effect after reboot.
+    <a href="#" onclick="reboot();return false;" style="color:#e94560;">Reboot now</a>
+  </p>
+</div>
+
+<script>
+let cfg = null;
+
+fetch('/api/config').then(r => r.json()).then(d => {
+  cfg = d;
+  const dhcp = !!(d.network && d.network.dhcp);
+  document.getElementById('dhcp').checked  = dhcp;
+  document.getElementById('ip').value      = d.network.ip;
+  document.getElementById('subnet').value  = d.network.subnet;
+  document.getElementById('gw').value      = d.network.gateway;
+  document.getElementById('ustart').value      = d.universeStart;
+  document.getElementById('usize').value       = d.universeSize;
+  document.querySelector(`input[name=proto][value="${d.protocol}"]`).checked = true;
+  toggleDhcp(dhcp);
+  toggleE131(d.protocol == 0);
+});
+
+document.querySelectorAll('input[name=proto]').forEach(r =>
+  r.addEventListener('change', () => toggleE131(r.value === '0')));
+
+function toggleDhcp(on) {
+  document.getElementById('staticFields').style.display = on ? 'none' : '';
+}
+function toggleE131(show) {
+  document.getElementById('e131opts').style.display = show ? '' : 'none';
+}
+
+function save() {
+  if (!cfg) return;
+  cfg.network.dhcp    = document.getElementById('dhcp').checked;
+  cfg.network.ip      = document.getElementById('ip').value.trim();
+  cfg.network.subnet  = document.getElementById('subnet').value.trim();
+  cfg.network.gateway = document.getElementById('gw').value.trim();
+  cfg.protocol        = parseInt(document.querySelector('input[name=proto]:checked').value, 10);
+  cfg.universeStart   = parseInt(document.getElementById('ustart').value, 10);
+  cfg.universeSize    = parseInt(document.getElementById('usize').value, 10);
+
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg)
+  }).then(r => r.json()).then(d => {
+    const el = document.getElementById('msg');
+    if (d.ok) { el.textContent = 'Saved.'; el.className = 'ok'; }
+    else       { el.textContent = 'Error: ' + (d.error || 'unknown'); el.className = 'err'; }
+  }).catch(() => {
+    const el = document.getElementById('msg');
+    el.textContent = 'Save failed.'; el.className = 'err';
+  });
+}
+
+function reboot() {
+  fetch('/api/reboot', { method: 'POST' });
+  document.getElementById('msg').textContent = 'Rebooting…';
+  document.getElementById('msg').className = 'ok';
+}
+</script>
+</body>
+</html>

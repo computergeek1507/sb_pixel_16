@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBPixel16 — Ports</title>
+<style>
+  body  { font-family: sans-serif; margin: 2em; background: #1a1a2e; color: #e0e0e0; }
+  h1    { color: #e94560; }
+  nav a { color: #e94560; margin-right: 1.5em; text-decoration: none; font-weight: bold; }
+  table { border-collapse: collapse; margin-top: 1.5em; width: 100%; }
+  th, td { padding: 0.4em 0.5em; border: 1px solid #0f3460; text-align: center;
+           white-space: nowrap; }
+  th    { background: #0f3460; color: #e94560; font-size: 0.85em; }
+  input[type=number] {
+    width: 64px; background: #16213e; color: #e0e0e0;
+    border: 1px solid #0f3460; border-radius: 4px; padding: 2px 4px;
+  }
+  select {
+    background: #16213e; color: #e0e0e0;
+    border: 1px solid #0f3460; border-radius: 4px; padding: 2px 4px;
+    font-size: 0.9em;
+  }
+  button { margin-top: 1.5em; padding: 0.6em 2em; background: #e94560;
+           color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; }
+  button:hover { background: #c73652; }
+  #msg  { margin-top: 1em; font-weight: bold; min-height: 1.4em; }
+  .ok   { color: #4caf50; }
+  .err  { color: #e94560; }
+  .card { background: #16213e; border-radius: 8px; padding: 1.5em; margin-top: 1.5em; max-width: 480px; }
+  .card h2 { margin-top: 0; color: #c0c0c0; font-size: 1em; text-transform: uppercase; letter-spacing: .05em; }
+  .card label { display: block; margin-bottom: 0.3em; color: #aaa; font-size: 0.9em; }
+  .card input[type=number], .card input[type=text] {
+    width: 100%; box-sizing: border-box; background: #0f3460; color: #e0e0e0;
+    border: 1px solid #e94560; border-radius: 4px; padding: 6px 8px; margin-bottom: 1em;
+  }
+  .card .row { display: flex; gap: 1em; }
+  .card .row > div { flex: 1; }
+  .card input[type=checkbox] { width: 16px; height: 16px; accent-color: #e94560; cursor: pointer; }
+  .toggle-row { display: flex; align-items: center; gap: 0.6em; margin-bottom: 1em; }
+  .toggle-row label { color: #e0e0e0; font-size: 1em; margin: 0; }
+</style>
+</head>
+<body>
+<h1>SBPixel16</h1>
+<nav>
+  <a href="index.html">Dashboard</a>
+  <a href="ports.html">Ports</a>
+  <a href="network.html">Network</a>
+  <a href="ota.html">OTA</a>
+</nav>
+<table>
+  <thead>
+    <tr>
+      <th>Port</th>
+      <th>Pixels</th>
+      <th>Start Ch.</th>
+      <th>Color Order</th>
+      <th>Null Px</th>
+      <th>Grouping</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+<button onclick="save()">Save</button>
+<p style="font-size:0.8em;color:#888;margin-top:0.5em;">
+  Pixel count / null pixels / grouping changes take effect after reboot.
+</p>
+<div id="msg"></div>
+
+<div class="card">
+  <h2>DMX Output</h2>
+  <div class="toggle-row">
+    <input type="checkbox" id="dmxEnabled" onchange="toggleDmx(this.checked)">
+    <label for="dmxEnabled">Enable (requires reboot) — works with E1.31 and DDP input</label>
+  </div>
+  <div id="dmxFields" style="display:none">
+    <div class="row">
+      <div><label>Channel Count (1–512)</label><input type="number" id="dmxChannels" min="1" max="512"></div>
+      <div><label>Start Channel (1-based)</label><input type="number" id="dmxStartCh" min="1"></div>
+    </div>
+    <p style="font-size:0.8em;color:#888;margin:0 0 0.5em">TX pin: GPIO54 (fixed)</p>
+  </div>
+</div>
+
+<script>
+const COLOR_ORDERS = ['GRB','RGB','BGR','RBG','GBR','BRG'];
+let cfg = null;
+
+function toggleDmx(on) {
+  document.getElementById('dmxFields').style.display = on ? '' : 'none';
+}
+
+fetch('/api/config').then(r => r.json()).then(d => {
+  cfg = d;
+  const dmxOn = !!d.dmxEnabled;
+  document.getElementById('dmxEnabled').checked   = dmxOn;
+  document.getElementById('dmxChannels').value    = d.dmxChannels ?? 512;
+  document.getElementById('dmxStartCh').value     = d.dmxStartCh  ?? 1;
+  toggleDmx(dmxOn);
+  const tbody = document.getElementById('rows');
+  d.ports.forEach((p, i) => {
+    const coOpts = COLOR_ORDERS.map((name, idx) =>
+      `<option value="${idx}" ${idx === (p.colorOrder||0) ? 'selected' : ''}>${name}</option>`
+    ).join('');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${i + 1}</td>` +
+      `<td><input type="number" id="pc${i}" min="1" max="680" value="${p.pixelCount}"></td>` +
+      `<td><input type="number" id="sc${i}" min="1"           value="${p.startChannel}"></td>` +
+      `<td><select id="co${i}">${coOpts}</select></td>` +
+      `<td><input type="number" id="np${i}" min="0" max="50"  value="${p.nullPixels||0}"></td>` +
+      `<td><input type="number" id="gr${i}" min="1" max="8"   value="${p.grouping||1}"></td>`;
+    tbody.appendChild(tr);
+  });
+}).catch(() => { document.getElementById('msg').textContent = 'Failed to load config'; });
+
+function save() {
+  if (!cfg) return;
+  for (let i = 0; i < 16; i++) {
+    cfg.ports[i].pixelCount   = parseInt(document.getElementById(`pc${i}`).value, 10);
+    cfg.ports[i].startChannel = parseInt(document.getElementById(`sc${i}`).value, 10);
+    cfg.ports[i].colorOrder   = parseInt(document.getElementById(`co${i}`).value, 10);
+    cfg.ports[i].nullPixels   = parseInt(document.getElementById(`np${i}`).value, 10);
+    cfg.ports[i].grouping     = parseInt(document.getElementById(`gr${i}`).value, 10);
+  }
+  cfg.dmxEnabled  = document.getElementById('dmxEnabled').checked;
+  cfg.dmxChannels = parseInt(document.getElementById('dmxChannels').value, 10);
+  cfg.dmxStartCh  = parseInt(document.getElementById('dmxStartCh').value, 10);
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg)
+  }).then(r => r.json()).then(d => {
+    const el = document.getElementById('msg');
+    if (d.ok) { el.textContent = 'Saved.'; el.className = 'ok'; }
+    else       { el.textContent = 'Error: ' + (d.error || 'unknown'); el.className = 'err'; }
+  }).catch(() => {
+    const el = document.getElementById('msg');
+    el.textContent = 'Save failed (network error).'; el.className = 'err';
+  });
+}
+</script>
+</body>
+</html>
