@@ -3,7 +3,7 @@
 // ── Board / port constants ────────────────────────────────────────────────────
 
 #define NUM_PORTS       16
-#define MAX_PIXELS      170     // max pixels per port; increase if needed (affects FPS)
+#define MAX_PIXELS      340     // max pixels per port; increase if needed (affects FPS)
 #define DATA_TIMEOUT    1000    // ms before clearing pixels on no data
 #define REFRESH         25      // ms between FastLED.show() calls (~40fps target)
 #define HTTP_PORT       80
@@ -48,6 +48,17 @@
 #define OLED_W      128
 #define OLED_H      64
 
+// ── microSD (SDIO 4-bit, on the ESP32-P4-ETH module) ──────────────────────────
+// Card slot lives on the Waveshare module, not the SBPixel16 PCB. SDMMC signals:
+#define SD_CLK_PIN  43
+#define SD_CMD_PIN  44
+#define SD_D0_PIN   39
+#define SD_D1_PIN   40
+#define SD_D2_PIN   41
+#define SD_D3_PIN   42
+#define SD_PWR_PIN  45      // Q1 high-side P-FET: drive LOW to power the card
+#define FSEQ_DIR    "/sequences"   // sequences played in a loop from here
+
 // ── ADC inputs ────────────────────────────────────────────────────────────────
 #define VIN1_PIN    20   // VIN1_ADC
 #define VIN2_PIN    21   // VIN2_ADC
@@ -57,6 +68,9 @@
 #define BTN1_PIN    26   // test-cycle button (active LOW, internal pull-up)
 #define BTN2_PIN    27   // test-stop  button (active LOW, internal pull-up)
 #define BTN_DEBOUNCE_MS  50
+#define LONGPRESS_MS    1500   // hold BTN1 this long to open the OLED network menu
+#define REPEAT_DELAY_MS  500   // hold-to-repeat: delay before auto-repeat starts
+#define REPEAT_RATE_MS   120   // hold-to-repeat: interval between repeats
 
 // ── Pixel output limits ───────────────────────────────────────────────────────
 #define MAX_NULL_PIXELS  50    // max null/sacrificial pixels per port
@@ -75,6 +89,7 @@
 // ── Input protocol ────────────────────────────────────────────────────────────
 #define PROTO_E131  0
 #define PROTO_DDP   1
+#define PROTO_FSEQ  2   // play FSEQ files from microSD in an endless loop
 
 // ── Config structs ────────────────────────────────────────────────────────────
 
@@ -84,6 +99,7 @@ typedef struct {
     uint8_t  colorOrder;    // CO_GRB … CO_BRG (default CO_GRB = 0)
     uint8_t  nullPixels;    // sacrificial pixels sent before data (0–MAX_NULL_PIXELS)
     uint8_t  grouping;      // physical LEDs per logical pixel (1 = no grouping)
+    uint8_t  brightness;    // per-port output brightness, percent (0-100)
 } PortConfig;
 
 typedef struct {
@@ -115,6 +131,14 @@ extern uint32_t g_vin2_mv;
 
 // Test mode: 0=off 1=red 2=green 3=blue 4=rainbow
 extern uint8_t  g_testMode;
+
+// microSD / FSEQ playback status (surfaced on OLED + web dashboard)
+extern bool     g_sdMounted;
+extern uint32_t g_sdSizeMB;
+extern uint16_t g_fseqCount;    // playable sequences found in FSEQ_DIR
+extern uint32_t g_fseqFrame;    // current frame of the playing sequence
+extern uint32_t g_fseqFrames;   // total frames in the playing sequence
+extern char     g_fseqName[32]; // file name currently playing
 
 // ── Global config ─────────────────────────────────────────────────────────────
 extern AppConfig cfg;

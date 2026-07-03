@@ -31,6 +31,9 @@
   <div class="stat"><span>DDP packets</span>     <span class="val" id="ddp">—</span></div>
   <div class="stat"><span>VIN1</span>            <span class="val" id="vin1">—</span></div>
   <div class="stat"><span>VIN2</span>            <span class="val" id="vin2">—</span></div>
+  <div class="stat"><span>SD card</span>         <span id="sd" class="badge">—</span></div>
+  <div class="stat" id="npRow" style="display:none">
+    <span>Now playing</span> <span id="np" style="color:#e94560;font-weight:bold;">—</span></div>
   <div class="stat"><span>Test mode</span>       <span id="test" class="badge">OFF</span></div>
 </div>
 <script>
@@ -45,7 +48,24 @@ function poll() {
     document.getElementById('vin2').textContent  = fmtV(d.vin2_mv);
     const p = document.getElementById('proto');
     p.textContent = d.protocol.toUpperCase();
-    p.style.background = d.protocol === 'ddp' ? '#533483' : '#0f3460';
+    p.style.background = d.protocol === 'ddp' ? '#533483'
+                       : d.protocol === 'fseq' ? '#1e5631' : '#0f3460';
+    const sd = document.getElementById('sd');
+    if (d.sdMounted) {
+      sd.textContent = 'Ready — ' + d.sdSizeMB + ' MB, ' + d.fseqCount + ' seq';
+      sd.style.background = '#1e5631';
+    } else {
+      sd.textContent = 'Not found';
+      sd.style.background = '#7a1e2e';
+    }
+    const npRow = document.getElementById('npRow');
+    if (d.protocol === 'fseq' && d.fseqName) {
+      npRow.style.display = '';
+      document.getElementById('np').textContent =
+        d.fseqName + '  (' + d.fseqFrame + '/' + d.fseqFrames + ')';
+    } else {
+      npRow.style.display = 'none';
+    }
     const t = document.getElementById('test');
     t.textContent = TEST_NAMES[d.testMode] || 'OFF';
     t.style.background = d.testMode ? '#7a1e2e' : '#0f3460';

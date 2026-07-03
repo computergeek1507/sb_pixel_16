@@ -65,6 +65,11 @@
     <div class="radio-row">
       <label><input type="radio" name="proto" value="0" id="r_e131"> E1.31 (sACN)</label>
       <label><input type="radio" name="proto" value="1" id="r_ddp">  DDP</label>
+      <label><input type="radio" name="proto" value="2" id="r_fseq"> FSEQ (SD)</label>
+    </div>
+    <div id="fseqnote" style="display:none;font-size:0.85em;color:#888;margin:0 0 0.5em;">
+      Plays every <code>.fseq</code> in <code>/sequences</code> on the SD card,
+      alphabetically, looping forever. Uncompressed FSEQ only.
     </div>
     <div id="e131opts">
       <div class="row">
@@ -96,17 +101,23 @@ fetch('/api/config').then(r => r.json()).then(d => {
   document.getElementById('usize').value       = d.universeSize;
   document.querySelector(`input[name=proto][value="${d.protocol}"]`).checked = true;
   toggleDhcp(dhcp);
-  toggleE131(d.protocol == 0);
+  refreshProtoUI();
 });
 
 document.querySelectorAll('input[name=proto]').forEach(r =>
-  r.addEventListener('change', () => toggleE131(r.value === '0')));
+  r.addEventListener('change', refreshProtoUI));
 
 function toggleDhcp(on) {
   document.getElementById('staticFields').style.display = on ? 'none' : '';
 }
-function toggleE131(show) {
-  document.getElementById('e131opts').style.display = show ? '' : 'none';
+function selProto() {
+  const r = document.querySelector('input[name=proto]:checked');
+  return r ? parseInt(r.value, 10) : 0;
+}
+function refreshProtoUI() {
+  const p = selProto();
+  document.getElementById('e131opts').style.display = p === 0 ? '' : 'none';
+  document.getElementById('fseqnote').style.display = p === 2 ? '' : 'none';
 }
 
 function save() {

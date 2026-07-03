@@ -122,9 +122,11 @@ private:
             return 0;
 
         const int logi = (physPx - nullN) / groupN;
-        const uint8_t r = rawBuf[port][logi * 3 + 0];
-        const uint8_t g = rawBuf[port][logi * 3 + 1];
-        const uint8_t b = rawBuf[port][logi * 3 + 2];
+        // Per-port brightness scaling (percent 0-100) applied per channel.
+        const uint16_t bri = min<uint16_t>(cfg.ports[port].brightness, 100);
+        const uint8_t r = (uint8_t)((uint16_t)rawBuf[port][logi * 3 + 0] * bri / 100);
+        const uint8_t g = (uint8_t)((uint16_t)rawBuf[port][logi * 3 + 1] * bri / 100);
+        const uint8_t b = (uint8_t)((uint16_t)rawBuf[port][logi * 3 + 2] * bri / 100);
 
         // Map logical RGB → physical wire byte order for this LED type.
         // WS2812 wire order is G, R, B (MSB first within each byte).

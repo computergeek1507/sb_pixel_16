@@ -8,6 +8,9 @@ void saveConfig();
 // ── Validation ────────────────────────────────────────────────────────────────
 
 static bool validateConfig(const AppConfig &c, String &err) {
+    if (c.protocol > PROTO_FSEQ) {
+        err = "protocol invalid (0=E1.31, 1=DDP, 2=FSEQ)"; return false;
+    }
     if (c.uniSize < 1 || c.uniSize > 512) {
         err = "universeSize must be 1-512"; return false;
     }
@@ -34,6 +37,10 @@ static bool validateConfig(const AppConfig &c, String &err) {
         }
         if (c.ports[i].grouping < 1 || c.ports[i].grouping > MAX_GROUPING) {
             err = "port " + String(i) + " grouping must be 1-" + MAX_GROUPING;
+            return false;
+        }
+        if (c.ports[i].brightness > 100) {
+            err = "port " + String(i) + " brightness must be 0-100";
             return false;
         }
     }

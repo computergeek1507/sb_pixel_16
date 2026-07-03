@@ -1,0 +1,10 @@
+# Arduino build output
+firmware/SBPixel16/build/
+
+# KiCad editor history / backups / caches
+hardware/.history/
+hardware/ESP32-P4_16-backups/
+hardware/fp-info-cache
+*-backups/
+*.kicad_prl
+fp-info-cache

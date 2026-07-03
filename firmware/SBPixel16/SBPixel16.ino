@@ -28,6 +28,8 @@
 #include "SBPixel16.h"
 #include "parlio_ws2812.h"
 #include "dmx_output.h"
+#include "fseq_player.h"
+#include "net_menu.h"
 #include "page_index.h"
 #include "page_config.h"
 #include "page_ota.h"
@@ -47,12 +49,21 @@ uint32_t g_vin1_mv     = 0;
 uint32_t g_vin2_mv     = 0;
 uint8_t  g_testMode    = 0;
 
+bool     g_sdMounted   = false;
+uint32_t g_sdSizeMB    = 0;
+uint16_t g_fseqCount   = 0;
+uint32_t g_fseqFrame   = 0;
+uint32_t g_fseqFrames  = 0;
+char     g_fseqName[32] = {0};
+
 static bool          s_ethConnected = false;
 static AsyncWebServer web(HTTP_PORT);
 static NetworkUDP    e131Udp;
 static NetworkUDP    ddpUdp;
 static ParlioWs2812  parlio;
 static DmxOutput     dmx;
+static FseqPlayer    fseq;
+static NetMenu       netMenu;
 
 static uint8_t dmxBuf[512];
 
@@ -92,6 +103,7 @@ void configToJSON(String &out) {
         p["colorOrder"]   = cfg.ports[i].colorOrder;
         p["nullPixels"]   = cfg.ports[i].nullPixels;
         p["grouping"]     = cfg.ports[i].grouping;
+        p["brightness"]   = cfg.ports[i].brightness;
     }
 
     doc["dmxEnabled"]  = cfg.dmxEnabled;
@@ -126,6 +138,7 @@ bool jsonToConfig(const String &json) {
         if (p["colorOrder"].is<int>())   cfg.ports[i].colorOrder   = p["colorOrder"].as<uint8_t>();
         if (p["nullPixels"].is<int>())   cfg.ports[i].nullPixels   = p["nullPixels"].as<uint8_t>();
         if (p["grouping"].is<int>())     cfg.ports[i].grouping     = p["grouping"].as<uint8_t>();
+        if (p["brightness"].is<int>())   cfg.ports[i].brightness   = p["brightness"].as<uint8_t>();
         i++;
     }
     if (doc["dmxEnabled"].is<bool>())  cfg.dmxEnabled  = doc["dmxEnabled"].as<bool>();
@@ -140,15 +153,16 @@ void defaultConfig() {
     cfg.ip       = "192.168.1.200";
     cfg.subnet   = "255.255.255.0";
     cfg.gateway  = "192.168.1.1";
-    cfg.protocol = PROTO_E131;
-    cfg.uniStart = 1;
-    cfg.uniSize  = 510;
+    cfg.protocol   = PROTO_E131;
+    cfg.uniStart   = 1;
+    cfg.uniSize    = 510;
     for (int i = 0; i < NUM_PORTS; i++) {
-        cfg.ports[i].pixelCount   = 170;
+        cfg.ports[i].pixelCount   = 100;
         cfg.ports[i].startChannel = (uint32_t)(i * 510) + 1;
         cfg.ports[i].colorOrder   = CO_RGB;
         cfg.ports[i].nullPixels   = 0;
         cfg.ports[i].grouping     = 1;
+        cfg.ports[i].brightness   = 30;
     }
 }
 
@@ -229,6 +243,7 @@ void setupEthernet() {
 
 void updateOLED() {
     if (!s_oledFound) return;
+    if (netMenu.active()) { netMenu.render(oled); return; }
     oled.clearDisplay();
     oled.setTextSize(1);
     oled.setTextColor(SSD1306_WHITE);
@@ -250,13 +265,28 @@ void updateOLED() {
     }
 
     oled.setCursor(0, 18);
-    oled.print(cfg.protocol == PROTO_DDP ? "DDP" : "E1.31");
-    oled.print("  FPS:");
-    oled.print(g_fps);
+    if (cfg.protocol == PROTO_FSEQ) {
+        oled.print("FSEQ  FPS:");
+        oled.print(g_fps);
+        oled.setCursor(0, 27);
+        if (!g_sdMounted)         oled.print("No SD card");
+        else if (g_fseqCount == 0) oled.print("No sequences");
+        else {
+            oled.print(g_fseqName);
+            oled.setCursor(0, 45);
+            oled.print(g_fseqFrame);
+            oled.print("/");
+            oled.print(g_fseqFrames);
+        }
+    } else {
+        oled.print(cfg.protocol == PROTO_DDP ? "DDP" : "E1.31");
+        oled.print("  FPS:");
+        oled.print(g_fps);
 
-    oled.setCursor(0, 27);
-    oled.print("Pkts:");
-    oled.print(cfg.protocol == PROTO_DDP ? g_ddpPackets : g_e131Packets);
+        oled.setCursor(0, 27);
+        oled.print("Pkts:");
+        oled.print(cfg.protocol == PROTO_DDP ? g_ddpPackets : g_e131Packets);
+    }
 
     oled.setCursor(0, 36);
     char vbuf[22];
@@ -436,10 +466,12 @@ void setupADC() {
 
 // ── Buttons ───────────────────────────────────────────────────────────────────
 
-static bool     s_btn1Prev = HIGH;
-static bool     s_btn2Prev = HIGH;
-static uint32_t s_btn1Last = 0;
-static uint32_t s_btn2Last = 0;
+static bool     s_b1Prev = false;   // pressed = true
+static bool     s_b2Prev = false;
+static uint32_t s_b1Down = 0;
+static uint32_t s_b1Rep  = 0;
+static uint32_t s_b2Last = 0;
+static bool     s_b1Consumed = false;   // long-press-to-enter consumed this hold
 
 static const char* testModeName() {
     switch (g_testMode) {
@@ -458,26 +490,59 @@ void setupButtons() {
 
 void checkButtons() {
     uint32_t now = millis();
+    bool b1 = (digitalRead(BTN1_PIN) == LOW);   // active-LOW
+    bool b2 = (digitalRead(BTN2_PIN) == LOW);
 
-    bool btn1 = digitalRead(BTN1_PIN);
-    if (btn1 == LOW && s_btn1Prev == HIGH && (now - s_btn1Last) > BTN_DEBOUNCE_MS) {
-        s_btn1Last = now;
-        g_testMode = (g_testMode + 1) % 5;
-        Serial.printf("Test mode: %s\n", testModeName());
-        updateOLED();
+    // ── BTN1 ──────────────────────────────────────────────────────────────────
+    if (b1 && !s_b1Prev) {              // press edge
+        s_b1Down = now;
+        s_b1Rep  = now;
+        s_b1Consumed = false;
     }
-    s_btn1Prev = btn1;
+    if (b1) {                           // held
+        if (!netMenu.active()) {
+            // Long-press opens the network menu.
+            if (!s_b1Consumed && (now - s_b1Down) >= LONGPRESS_MS) {
+                netMenu.enter();
+                s_b1Consumed = true;    // suppress the test-cycle on release
+                updateOLED();
+            }
+        } else if (!s_b1Consumed &&
+                   (now - s_b1Down) >= REPEAT_DELAY_MS &&
+                   (now - s_b1Rep)  >= REPEAT_RATE_MS) {
+            s_b1Rep = now;              // hold-to-repeat value changes
+            netMenu.change();
+            updateOLED();
+        }
+    }
+    if (!b1 && s_b1Prev) {              // release edge
+        uint32_t held = now - s_b1Down;
+        if (netMenu.active()) {
+            if (!s_b1Consumed && held < REPEAT_DELAY_MS) { netMenu.change(); updateOLED(); }
+        } else if (!s_b1Consumed && held >= BTN_DEBOUNCE_MS) {
+            g_testMode = (g_testMode + 1) % 5;   // short press cycles test pattern
+            Serial.printf("Test mode: %s\n", testModeName());
+            updateOLED();
+        }
+        s_b1Consumed = false;
+    }
+    s_b1Prev = b1;
 
-    bool btn2 = digitalRead(BTN2_PIN);
-    if (btn2 == LOW && s_btn2Prev == HIGH && (now - s_btn2Last) > BTN_DEBOUNCE_MS) {
-        s_btn2Last = now;
-        g_testMode = 0;
-        memset(rawBuf, 0, sizeof(rawBuf));
-        parlio.show(rawBuf, cfg);
-        Serial.println("Test mode: OFF");
-        updateOLED();
+    // ── BTN2 ──────────────────────────────────────────────────────────────────
+    if (b2 && !s_b2Prev && (now - s_b2Last) > BTN_DEBOUNCE_MS) {
+        s_b2Last = now;
+        if (netMenu.active()) {
+            netMenu.next();                      // advance field / commit
+            updateOLED();
+        } else {
+            g_testMode = 0;                      // stop test pattern
+            memset(rawBuf, 0, sizeof(rawBuf));
+            parlio.show(rawBuf, cfg);
+            Serial.println("Test mode: OFF");
+            updateOLED();
+        }
     }
-    s_btn2Prev = btn2;
+    s_b2Prev = b2;
 }
 
 // ── Test pattern ──────────────────────────────────────────────────────────────
@@ -582,6 +647,7 @@ void setup() {
     setupButtons();
     setupParlio();
     setupDmx();
+    fseq.begin();          // power + mount microSD, scan /sequences
     powerUpTest();
     setupEthernet();
     setupWebServer();
@@ -597,11 +663,16 @@ void loop() {
     uint32_t now = millis();
 
     checkButtons();
+    netMenu.tick();
     readADC();
 
-    if (g_testMode == 0 && s_ethConnected) {
-        if (cfg.protocol == PROTO_E131) parseE131();
-        else                            parseDDP();
+    if (g_testMode == 0) {
+        if (cfg.protocol == PROTO_FSEQ) {
+            fseq.tick(rawBuf, cfg, dmxBuf);
+        } else if (s_ethConnected) {
+            if (cfg.protocol == PROTO_E131) parseE131();
+            else                            parseDDP();
+        }
     }
 
     if (now - s_refreshTimer >= REFRESH) {
