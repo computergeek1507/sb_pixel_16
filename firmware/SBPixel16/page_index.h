@@ -2,7 +2,7 @@
 
 // GET /api/status  — live runtime stats
 void get_status(AsyncWebServerRequest *request) {
-    char buf[384];
+    char buf[512];
     const char *proto = cfg.protocol == PROTO_DDP  ? "ddp"
                       : cfg.protocol == PROTO_FSEQ ? "fseq"
                                                    : "e131";
@@ -12,7 +12,8 @@ void get_status(AsyncWebServerRequest *request) {
         ",\"vin1_mv\":%lu,\"vin2_mv\":%lu"
         ",\"testMode\":%u"
         ",\"sdMounted\":%s,\"sdSizeMB\":%lu,\"fseqCount\":%u"
-        ",\"fseqName\":\"%s\",\"fseqFrame\":%lu,\"fseqFrames\":%lu}",
+        ",\"fseqName\":\"%s\",\"fseqFrame\":%lu,\"fseqFrames\":%lu"
+        ",\"version\":\"%s\",\"build\":%u,\"buildDate\":\"%s\"}",
         (unsigned long)g_fps,
         (unsigned long)g_e131Packets,
         (unsigned long)g_ddpPackets,
@@ -25,6 +26,7 @@ void get_status(AsyncWebServerRequest *request) {
         g_fseqCount,
         g_fseqName,
         (unsigned long)g_fseqFrame,
-        (unsigned long)g_fseqFrames);
+        (unsigned long)g_fseqFrames,
+        FW_VERSION, (unsigned)FW_BUILD, FW_BUILD_DATE);
     request->send(200, "application/json", buf);
 }

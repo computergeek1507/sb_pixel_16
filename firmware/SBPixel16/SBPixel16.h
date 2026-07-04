@@ -1,5 +1,10 @@
 #pragma once
 
+// ── Firmware version ──────────────────────────────────────────────────────────
+#define FW_VERSION    "1.0.0"                 // semantic version (bump on release)
+#define FW_BUILD      3                       // build number (bump each flashed build)
+#define FW_BUILD_DATE (__DATE__ " " __TIME__) // compile timestamp = unique build id
+
 // ── Board / port constants ────────────────────────────────────────────────────
 
 #define NUM_PORTS       16
@@ -63,6 +68,10 @@
 #define VIN1_PIN    20   // VIN1_ADC
 #define VIN2_PIN    21   // VIN2_ADC
 #define ADC_SAMPLES  8   // oversampling count for noise reduction
+// VIN sense divider (per schematic): VINx --[10k]-- node --[680]-- GND,
+// node --[100]-- ADC pin. Actual VIN = pin_mV * (10000+680)/680.
+#define VIN_DIV_NUM  10680
+#define VIN_DIV_DEN  680
 
 // ── Buttons ───────────────────────────────────────────────────────────────────
 #define BTN1_PIN    26   // test-cycle button (active LOW, internal pull-up)

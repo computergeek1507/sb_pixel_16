@@ -295,6 +295,10 @@ void updateOLED() {
              g_vin2_mv / 1000, (g_vin2_mv % 1000) / 10);
     oled.print(vbuf);
 
+    oled.setCursor(0, 56);
+    oled.print("v"); oled.print(FW_VERSION);
+    oled.print(" b"); oled.print(FW_BUILD);
+
     oled.display();
 }
 
@@ -313,6 +317,9 @@ void setupOLED() {
     oled.println("SBPixel16");
     oled.setTextSize(1);
     oled.setCursor(0, 20);
+    oled.print("v"); oled.print(FW_VERSION);
+    oled.print(" build "); oled.print(FW_BUILD);
+    oled.setCursor(0, 32);
     oled.println("Starting...");
     oled.display();
     Serial.println("OLED: SSD1306 128x64 found");
@@ -453,15 +460,15 @@ void readADC() {
     uint32_t now = millis();
     if (now - s_adcTimer < 500) return;
     s_adcTimer = now;
-    g_vin1_mv = oversample(VIN1_PIN);
-    g_vin2_mv = oversample(VIN2_PIN);
+    g_vin1_mv = oversample(VIN1_PIN) * VIN_DIV_NUM / VIN_DIV_DEN;
+    g_vin2_mv = oversample(VIN2_PIN) * VIN_DIV_NUM / VIN_DIV_DEN;
 }
 
 void setupADC() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
-    g_vin1_mv = oversample(VIN1_PIN);
-    g_vin2_mv = oversample(VIN2_PIN);
+    g_vin1_mv = oversample(VIN1_PIN) * VIN_DIV_NUM / VIN_DIV_DEN;
+    g_vin2_mv = oversample(VIN2_PIN) * VIN_DIV_NUM / VIN_DIV_DEN;
 }
 
 // ── Buttons ───────────────────────────────────────────────────────────────────
@@ -645,9 +652,10 @@ void setup() {
     setupOLED();
     setupADC();
     setupButtons();
+    fseq.begin();          // power + mount microSD BEFORE PARLIO, so SDMMC init
+                           // can't disturb PARLIO's DMA setup (dark-pixel bug)
     setupParlio();
     setupDmx();
-    fseq.begin();          // power + mount microSD, scan /sequences
     powerUpTest();
     setupEthernet();
     setupWebServer();

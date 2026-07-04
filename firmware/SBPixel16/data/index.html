@@ -35,6 +35,7 @@
   <div class="stat" id="npRow" style="display:none">
     <span>Now playing</span> <span id="np" style="color:#e94560;font-weight:bold;">—</span></div>
   <div class="stat"><span>Test mode</span>       <span id="test" class="badge">OFF</span></div>
+  <div class="stat"><span>Firmware</span>        <span id="fw" class="badge">—</span></div>
 </div>
 <script>
 const TEST_NAMES = ['OFF','RED','GREEN','BLUE','RAINBOW'];
@@ -69,6 +70,11 @@ function poll() {
     const t = document.getElementById('test');
     t.textContent = TEST_NAMES[d.testMode] || 'OFF';
     t.style.background = d.testMode ? '#7a1e2e' : '#0f3460';
+    if (d.version) {
+      const fw = document.getElementById('fw');
+      fw.textContent = 'v' + d.version + ' · build ' + d.build;
+      fw.title = d.buildDate || '';
+    }
   }).catch(() => {});
 }
 poll();
