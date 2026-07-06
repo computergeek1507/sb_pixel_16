@@ -2,7 +2,7 @@
 
 // ── Firmware version ──────────────────────────────────────────────────────────
 #define FW_VERSION    "1.0.0"                 // semantic version (bump on release)
-#define FW_BUILD      3                       // build number (bump each flashed build)
+#define FW_BUILD      6                       // build number (bump each flashed build)
 #define FW_BUILD_DATE (__DATE__ " " __TIME__) // compile timestamp = unique build id
 
 // ── Board / port constants ────────────────────────────────────────────────────
@@ -140,6 +140,18 @@ extern uint32_t g_vin2_mv;
 
 // Test mode: 0=off 1=red 2=green 3=blue 4=rainbow
 extern uint8_t  g_testMode;
+
+// True if the PARLIO WS2812 driver initialized OK (else pixel output is dead).
+extern bool g_parlioOk;
+
+// Diagnostics surfaced in /api/status for remote debugging.
+extern volatile bool     g_menuActive;   // OLED network menu currently open
+extern volatile uint32_t g_b1HeldMs;     // how long BTN1 has been held (0 = up)
+
+// OTA in progress: loop() suspends pixel rendering so the async web-server
+// task gets the CPU and an uncontended flash bus (fixes slow/failing uploads).
+extern volatile bool     g_otaActive;
+extern volatile uint32_t g_otaLastMs;
 
 // microSD / FSEQ playback status (surfaced on OLED + web dashboard)
 extern bool     g_sdMounted;

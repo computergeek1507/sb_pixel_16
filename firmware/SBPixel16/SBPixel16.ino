@@ -49,6 +49,12 @@ uint32_t g_vin1_mv     = 0;
 uint32_t g_vin2_mv     = 0;
 uint8_t  g_testMode    = 0;
 
+bool              g_parlioOk  = false;
+volatile bool     g_menuActive = false;
+volatile uint32_t g_b1HeldMs  = 0;
+volatile bool     g_otaActive = false;
+volatile uint32_t g_otaLastMs = 0;
+
 bool     g_sdMounted   = false;
 uint32_t g_sdSizeMB    = 0;
 uint16_t g_fseqCount   = 0;
@@ -328,7 +334,8 @@ void setupOLED() {
 // ── PARLIO LED output ─────────────────────────────────────────────────────────
 
 void setupParlio() {
-    if (!parlio.begin(cfg))
+    g_parlioOk = parlio.begin(cfg);
+    if (!g_parlioOk)
         Serial.println("PARLIO init failed!");
 }
 
@@ -533,6 +540,7 @@ void checkButtons() {
         }
         s_b1Consumed = false;
     }
+    g_b1HeldMs = b1 ? (now - s_b1Down) : 0;   // diagnostic
     s_b1Prev = b1;
 
     // ── BTN2 ──────────────────────────────────────────────────────────────────
@@ -652,10 +660,11 @@ void setup() {
     setupOLED();
     setupADC();
     setupButtons();
-    fseq.begin();          // power + mount microSD BEFORE PARLIO, so SDMMC init
-                           // can't disturb PARLIO's DMA setup (dark-pixel bug)
-    setupParlio();
+    setupParlio();         // PARLIO must init first and unobstructed
     setupDmx();
+    // Only bring up the SD card when actually playing FSEQ — SDMMC init breaks
+    // PARLIO output, so E1.31/DDP mode must never touch it.
+    if (cfg.protocol == PROTO_FSEQ) fseq.begin();
     powerUpTest();
     setupEthernet();
     setupWebServer();
@@ -670,12 +679,22 @@ static uint32_t s_fpsTimer     = 0;
 void loop() {
     uint32_t now = millis();
 
+    // While an OTA upload is running, hand the CPU + flash bus to the async
+    // web-server task: skip pixel rendering entirely and just yield. Cleared
+    // by a timeout if the upload aborts without a final chunk.
+    if (g_otaActive) {
+        if (now - g_otaLastMs > 5000) g_otaActive = false;
+        else { delay(2); return; }
+    }
+
     checkButtons();
     netMenu.tick();
+    g_menuActive = netMenu.active();
     readADC();
 
     if (g_testMode == 0) {
         if (cfg.protocol == PROTO_FSEQ) {
+            fseq.begin();      // lazy mount on first FSEQ use (no-op after first)
             fseq.tick(rawBuf, cfg, dmxBuf);
         } else if (s_ethConnected) {
             if (cfg.protocol == PROTO_E131) parseE131();

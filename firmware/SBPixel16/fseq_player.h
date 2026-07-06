@@ -20,8 +20,12 @@
 class FseqPlayer {
 public:
     // Power up + mount the card and scan the sequence folder. Safe to call
-    // even if no card is present (leaves g_sdMounted=false).
+    // repeatedly — it only runs once. NOTE: only call this in FSEQ mode; the
+    // SDMMC host init interferes with PARLIO, so E1.31/DDP mode must not touch
+    // the SD card (otherwise pixel output dies).
     bool begin() {
+        if (_begun) return _mounted;
+        _begun = true;
         pinMode(SD_PWR_PIN, OUTPUT);
         digitalWrite(SD_PWR_PIN, LOW);   // enable card power (Q1 high-side P-FET)
         delay(20);
@@ -59,6 +63,7 @@ public:
     }
 
 private:
+    bool     _begun   = false;
     bool     _mounted = false;
     int      _fileCount = 0;
     String   _files[FSEQ_MAX_FILES];

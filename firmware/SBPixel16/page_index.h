@@ -13,7 +13,8 @@ void get_status(AsyncWebServerRequest *request) {
         ",\"testMode\":%u"
         ",\"sdMounted\":%s,\"sdSizeMB\":%lu,\"fseqCount\":%u"
         ",\"fseqName\":\"%s\",\"fseqFrame\":%lu,\"fseqFrames\":%lu"
-        ",\"version\":\"%s\",\"build\":%u,\"buildDate\":\"%s\"}",
+        ",\"version\":\"%s\",\"build\":%u,\"buildDate\":\"%s\""
+        ",\"parlioOk\":%s,\"menuActive\":%s,\"b1HeldMs\":%lu}",
         (unsigned long)g_fps,
         (unsigned long)g_e131Packets,
         (unsigned long)g_ddpPackets,
@@ -27,6 +28,9 @@ void get_status(AsyncWebServerRequest *request) {
         g_fseqName,
         (unsigned long)g_fseqFrame,
         (unsigned long)g_fseqFrames,
-        FW_VERSION, (unsigned)FW_BUILD, FW_BUILD_DATE);
+        FW_VERSION, (unsigned)FW_BUILD, FW_BUILD_DATE,
+        g_parlioOk ? "true" : "false",
+        g_menuActive ? "true" : "false",
+        (unsigned long)g_b1HeldMs);
     request->send(200, "application/json", buf);
 }

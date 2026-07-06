@@ -8,3 +8,7 @@ hardware/fp-info-cache
 *-backups/
 *.kicad_prl
 fp-info-cache
+
+# KiCad lock files
+*.lck
+~*.lck
