@@ -267,10 +267,9 @@ void updateOLED() {
     oled.setCursor(0, 0);
     oled.print("SBPixel16");
     if (g_testMode > 0) {
-        oled.setCursor(54, 0);
-        oled.print("[TEST:");
+        oled.setCursor(58, 0);          // compact: "T:RAINBOW" fits before the SD icon
+        oled.print("T:");
         oled.print(testModeName());
-        oled.print("]");
     }
     if (g_sdMounted)
         oled.drawBitmap(120, 0, SD_ICON, 8, 11, SSD1306_WHITE);

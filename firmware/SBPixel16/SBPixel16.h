@@ -2,7 +2,7 @@
 
 // ── Firmware version ──────────────────────────────────────────────────────────
 #define FW_VERSION    "1.0.0"                 // semantic version (bump on release)
-#define FW_BUILD      13                      // build number (bump each flashed build)
+#define FW_BUILD      14                      // build number (bump each flashed build)
 #define FW_BUILD_DATE (__DATE__ " " __TIME__) // compile timestamp = unique build id
 
 // ── Board / port constants ────────────────────────────────────────────────────
