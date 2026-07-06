@@ -19,10 +19,10 @@
 
 class FseqPlayer {
 public:
-    // Power up + mount the card and scan the sequence folder. Safe to call
-    // repeatedly — it only runs once. NOTE: only call this in FSEQ mode; the
-    // SDMMC host init interferes with PARLIO, so E1.31/DDP mode must not touch
-    // the SD card (otherwise pixel output dies).
+    // Mount the card (variant auto-config: SLOT-0 IOMUX, on-chip LDO ch4, power
+    // pin GPIO45) and scan the sequence folder. Safe to call repeatedly — runs
+    // once. Call at boot AFTER setupParlio() so PARLIO gets its DMA first; early
+    // mount is what works on this board.
     bool begin() {
         if (_begun) return _mounted;
         _begun = true;

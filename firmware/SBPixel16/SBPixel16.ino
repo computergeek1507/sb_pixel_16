@@ -665,9 +665,10 @@ void setup() {
     setupButtons();
     setupParlio();         // PARLIO must init first and unobstructed
     setupDmx();
-    // Only bring up the SD card when actually playing FSEQ — SDMMC init breaks
-    // PARLIO output, so E1.31/DDP mode must never touch it.
-    if (cfg.protocol == PROTO_FSEQ) fseq.begin();
+    // Mount the microSD at boot, right after PARLIO. Early mount (in setup, not
+    // lazily in the loop) is what actually works on this board; PARLIO initializes
+    // first so it keeps its DMA. Gives SD status in the web UI and enables FSEQ.
+    fseq.begin();
     powerUpTest();
     setupEthernet();
     setupWebServer();
