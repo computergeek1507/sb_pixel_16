@@ -1,5 +1,8 @@
 # SBPixel16
 
+[![Build Firmware](https://github.com/computergeek1507/sb_pixel_16/actions/workflows/build-firmware.yml/badge.svg)](https://github.com/computergeek1507/sb_pixel_16/actions/workflows/build-firmware.yml)
+[![KiCad Export](https://github.com/computergeek1507/sb_pixel_16/actions/workflows/kicad-export.yml/badge.svg)](https://github.com/computergeek1507/sb_pixel_16/actions/workflows/kicad-export.yml)
+
 A 16-port WS2812 pixel controller built on the **ESP32-P4**. It drives all 16 LED
 strips simultaneously using the ESP32-P4's PARLIO peripheral for glitch-free parallel
 DMA output. Pixel data comes from Ethernet (E1.31/sACN or DDP) or from **FSEQ
