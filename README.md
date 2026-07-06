@@ -74,22 +74,32 @@ Install via the Arduino Library Manager:
 
 | Library | Source |
 | --- | --- |
-| ESPAsyncWebServer | github.com/me-no-dev/ESPAsyncWebServer |
-| AsyncTCP | github.com/me-no-dev/AsyncTCP |
+| ESPAsyncWebServer | github.com/ESP32Async/ESPAsyncWebServer |
+| AsyncTCP | github.com/ESP32Async/AsyncTCP |
 | ArduinoJson | arduinojson.org |
 | Adafruit GFX + Adafruit SSD1306 | Adafruit (OLED display) |
 
 ### Build & flash
 
 1. Install the ESP32 board package (Arduino-ESP32 **3.x**) and select an **ESP32-P4** board.
-2. Set the partition scheme to **Default 4MB with SPIFFS**.
-3. Open `firmware/SBPixel16/SBPixel16.ino`, compile, and upload.
-4. Upload the web UI: flash the LittleFS filesystem image (the web pages served from
-   `/`) — a prebuilt `SBPixel16.littlefs.bin` is provided, or re-flash it later over
-   the air from the web UI.
+2. **Enable PSRAM** (Tools → PSRAM → *Enabled* = `-DBOARD_HAS_PSRAM`). The module has
+   PSRAM but the board default is *Disabled*, which leaves it uninitialized.
+3. Set the partition scheme to **Default 4MB with SPIFFS**.
+4. Open `firmware/SBPixel16/SBPixel16.ino`, compile, and upload.
+5. Upload the web UI: flash the LittleFS filesystem image — a prebuilt
+   `SBPixel16.littlefs.bin` is provided, or re-flash it over the air from the web UI.
 
 On first boot with no `/config.json`, the firmware writes sensible defaults
 (DHCP on, E1.31, 100 pixels/port, RGB order, 30% brightness).
+
+**Board revisions:** the default build targets **HW1** (original pin map). Build for
+the revised **HW2** board (pixel ports 12–16 rerouted off the USB pins onto
+GPIO32/33/46/47/48) with `-DHW_VERSION=2`.
+
+**Prebuilt binaries:** every push builds HW1 + HW2 firmware and the KiCad fabrication
+outputs in CI — download them from the repo's **Actions** tab. When flashing over
+serial after an OTA, use the `.merged.bin` (or first `esptool erase-region 0xe000
+0x2000`), otherwise the bootloader keeps booting the previous OTA partition.
 
 ### REST API
 
@@ -110,22 +120,25 @@ On first boot with no `/config.json`, the firmware writes sensible defaults
 - Data timeout: outputs blank after 1 s with no packets
 - E1.31 UDP port 5568 · DDP UDP port 4048 · HTTP port 80
 
-### Front-panel network setup
+### Front-panel controls (two buttons)
 
-Static IP can be set without a computer using the two on-board buttons:
+| Button | Action |
+| --- | --- |
+| **BTN1** tap | Cycle test pattern: Off → Red → Green → Blue → Rainbow → Off |
+| **BTN2** tap | Stop the test pattern |
+| **BTN2** hold (~1.5 s) | Open the `NETWORK SETUP` menu on the OLED |
 
-1. **Hold BTN1 (~1.5 s)** to open the `NETWORK SETUP` screen on the OLED.
-2. **BTN1** changes the value under the cursor (hold to auto-repeat); **BTN2** moves to
-   the next field. Order: DHCP on/off → IP → gateway → *Save & reboot*.
-3. Selecting **Save** writes the config and reboots. 30 s of inactivity cancels.
-
-Outside the menu, BTN1 cycles the test pattern and BTN2 stops it (unchanged).
+**In the network menu:** **BTN1** changes the value under the cursor (hold to
+auto-repeat), **BTN2** advances to the next field. Order: DHCP on/off → IP →
+gateway → *Save & reboot*. Saving writes the config and reboots; 30 s of inactivity
+cancels. Lets you set a static IP without a computer.
 
 ### FSEQ playback (microSD)
 
-Set the input protocol to **FSEQ** (Network page, or `protocol: 2`). On boot the
-controller powers and mounts the module's microSD slot and scans **`/sequences`** for
-`*.fseq` files. It plays them alphabetically and loops the whole folder forever — no
+The microSD card is mounted at boot in every mode — its status shows on the OLED
+(a card icon in the header) and the web dashboard. Set the input protocol to **FSEQ**
+(Network page, or `protocol: 2`) to play from it: the controller scans **`/sequences`**
+for `*.fseq` files, plays them alphabetically, and loops the whole folder forever — no
 network connection required.
 
 - **Format:** FSEQ v2, **uncompressed only** (full or sparse frames). Export from
