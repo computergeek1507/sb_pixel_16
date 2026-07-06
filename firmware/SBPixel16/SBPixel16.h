@@ -2,7 +2,7 @@
 
 // ── Firmware version ──────────────────────────────────────────────────────────
 #define FW_VERSION    "1.0.0"                 // semantic version (bump on release)
-#define FW_BUILD      6                       // build number (bump each flashed build)
+#define FW_BUILD      10                      // build number (bump each flashed build)
 #define FW_BUILD_DATE (__DATE__ " " __TIME__) // compile timestamp = unique build id
 
 // ── Board / port constants ────────────────────────────────────────────────────
@@ -31,11 +31,30 @@
 #define PIN_P8    4   // DATA9
 #define PIN_P9    3   // DATA10
 #define PIN_P10   2   // DATA11
-#define PIN_P11  46   // DATA12
-#define PIN_P12  47   // DATA13
-#define PIN_P13  24   // DATA14  (USB DM — USB disabled when in use)
-#define PIN_P14  48   // DATA15
-#define PIN_P15  25   // DATA16  (USB DP — USB disabled when in use)
+
+// ── Board revision: pixel ports 12-16 (PIN_P11..PIN_P15) differ per HW rev ─────
+// HW1 = original board.  HW2 = revised board that reroutes ports 12-16 (notably
+// 14 & 16 off the USB pins GPIO24/25).  Build HW2 with -DHW_VERSION=2, or change
+// the default below.
+#ifndef HW_VERSION
+#define HW_VERSION  1
+#endif
+
+#if HW_VERSION >= 2
+  // ---- HW2 (revised board): ports 12-16 remapped off the USB pins ----
+  #define PIN_P11  32   // DATA12  (port 12)  was GPIO46
+  #define PIN_P12  33   // DATA13  (port 13)  was GPIO47
+  #define PIN_P13  46   // DATA14  (port 14)  was GPIO24 (USB DM)
+  #define PIN_P14  47   // DATA15  (port 15)  was GPIO48
+  #define PIN_P15  48   // DATA16  (port 16)  was GPIO25 (USB DP)
+#else
+  // ---- HW1 (original board) ----
+  #define PIN_P11  46   // DATA12
+  #define PIN_P12  47   // DATA13
+  #define PIN_P13  24   // DATA14  (USB DM — dead on HW1)
+  #define PIN_P14  48   // DATA15
+  #define PIN_P15  25   // DATA16  (USB DP — dead on HW1)
+#endif
 
 // ── Ethernet PHY (IP101GRI on Waveshare ESP32-P4-ETH) ─────────────────────────
 #define ETH_PHY_TYPE    ETH_PHY_IP101
@@ -152,11 +171,14 @@ extern volatile uint32_t g_b1HeldMs;     // how long BTN1 has been held (0 = up)
 // task gets the CPU and an uncontended flash bus (fixes slow/failing uploads).
 extern volatile bool     g_otaActive;
 extern volatile uint32_t g_otaLastMs;
+extern volatile uint32_t g_otaFlashMs;   // duration of the last PSRAM->flash write
+extern volatile uint8_t  g_otaMode;      // last OTA buffer path: 0=idle 1=psram 2=stream
 
 // microSD / FSEQ playback status (surfaced on OLED + web dashboard)
 extern bool     g_sdMounted;
 extern uint32_t g_sdSizeMB;
 extern uint16_t g_fseqCount;    // playable sequences found in FSEQ_DIR
+extern char     g_sdError[24];  // SD mount result/how (diagnostic)
 extern uint32_t g_fseqFrame;    // current frame of the playing sequence
 extern uint32_t g_fseqFrames;   // total frames in the playing sequence
 extern char     g_fseqName[32]; // file name currently playing

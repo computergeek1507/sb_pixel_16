@@ -54,6 +54,8 @@ volatile bool     g_menuActive = false;
 volatile uint32_t g_b1HeldMs  = 0;
 volatile bool     g_otaActive = false;
 volatile uint32_t g_otaLastMs = 0;
+volatile uint32_t g_otaFlashMs = 0;
+volatile uint8_t  g_otaMode    = 0;
 
 bool     g_sdMounted   = false;
 uint32_t g_sdSizeMB    = 0;
@@ -61,6 +63,7 @@ uint16_t g_fseqCount   = 0;
 uint32_t g_fseqFrame   = 0;
 uint32_t g_fseqFrames  = 0;
 char     g_fseqName[32] = {0};
+char     g_sdError[24]  = {0};
 
 static bool          s_ethConnected = false;
 static AsyncWebServer web(HTTP_PORT);

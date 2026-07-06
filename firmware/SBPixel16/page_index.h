@@ -2,7 +2,7 @@
 
 // GET /api/status  — live runtime stats
 void get_status(AsyncWebServerRequest *request) {
-    char buf[512];
+    char buf[640];
     const char *proto = cfg.protocol == PROTO_DDP  ? "ddp"
                       : cfg.protocol == PROTO_FSEQ ? "fseq"
                                                    : "e131";
@@ -14,7 +14,9 @@ void get_status(AsyncWebServerRequest *request) {
         ",\"sdMounted\":%s,\"sdSizeMB\":%lu,\"fseqCount\":%u"
         ",\"fseqName\":\"%s\",\"fseqFrame\":%lu,\"fseqFrames\":%lu"
         ",\"version\":\"%s\",\"build\":%u,\"buildDate\":\"%s\""
-        ",\"parlioOk\":%s,\"menuActive\":%s,\"b1HeldMs\":%lu}",
+        ",\"parlioOk\":%s,\"menuActive\":%s,\"b1HeldMs\":%lu"
+        ",\"otaMode\":%u,\"otaFlashMs\":%lu,\"freePsram\":%lu,\"psramSize\":%lu"
+        ",\"sdError\":\"%s\"}",
         (unsigned long)g_fps,
         (unsigned long)g_e131Packets,
         (unsigned long)g_ddpPackets,
@@ -31,6 +33,11 @@ void get_status(AsyncWebServerRequest *request) {
         FW_VERSION, (unsigned)FW_BUILD, FW_BUILD_DATE,
         g_parlioOk ? "true" : "false",
         g_menuActive ? "true" : "false",
-        (unsigned long)g_b1HeldMs);
+        (unsigned long)g_b1HeldMs,
+        (unsigned)g_otaMode,
+        (unsigned long)g_otaFlashMs,
+        (unsigned long)ESP.getFreePsram(),
+        (unsigned long)ESP.getPsramSize(),
+        g_sdError);
     request->send(200, "application/json", buf);
 }

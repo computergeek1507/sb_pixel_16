@@ -26,20 +26,29 @@ public:
     bool begin() {
         if (_begun) return _mounted;
         _begun = true;
-        pinMode(SD_PWR_PIN, OUTPUT);
-        digitalWrite(SD_PWR_PIN, LOW);   // enable card power (Q1 high-side P-FET)
-        delay(20);
+        // The esp32p4 Arduino variant already defines the SD slot (SLOT-0 IOMUX),
+        // the on-chip LDO power channel (4) and the card power pin (GPIO45, active
+        // LOW). Let SD_MMC.begin() apply all of that — do NOT call setPins()
+        // (SLOT-0 uses fixed IOMUX pins and setPins would fight it).
+        const char *how = "fail";
+        bool ok = SD_MMC.begin("/sdcard", false, false, SDMMC_FREQ_DEFAULT);  // 4-bit 20MHz
+        if (ok) how = "4bit";
+        if (!ok) { SD_MMC.end(); delay(10);
+                   ok = SD_MMC.begin("/sdcard", true, false, SDMMC_FREQ_DEFAULT);   // 1-bit
+                   if (ok) how = "1bit"; }
 
-        SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN, SD_D1_PIN, SD_D2_PIN, SD_D3_PIN);
-        if (!SD_MMC.begin("/sdcard", false /* 4-bit */)) {
-            Serial.println("SD: mount failed (no card?)");
+        strncpy(g_sdError, how, sizeof(g_sdError) - 1);
+        g_sdError[sizeof(g_sdError) - 1] = 0;
+
+        if (!ok) {
+            Serial.println("SD: mount failed");
             _mounted = false; g_sdMounted = false;
             return false;
         }
         _mounted    = true;
         g_sdMounted = true;
         g_sdSizeMB  = (uint32_t)(SD_MMC.cardSize() / (1024ULL * 1024ULL));
-        Serial.printf("SD: mounted, %lu MB\n", (unsigned long)g_sdSizeMB);
+        Serial.printf("SD: mounted (%s), %lu MB\n", how, (unsigned long)g_sdSizeMB);
 
         scanPlaylist();
         return true;
