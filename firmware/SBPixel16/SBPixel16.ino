@@ -495,8 +495,8 @@ static bool     s_b1Prev = false;   // pressed = true
 static bool     s_b2Prev = false;
 static uint32_t s_b1Down = 0;
 static uint32_t s_b1Rep  = 0;
-static uint32_t s_b2Last = 0;
-static bool     s_b1Consumed = false;   // long-press-to-enter consumed this hold
+static uint32_t s_b2Down = 0;
+static bool     s_b2Consumed = false;   // BTN2 long-press-to-enter consumed this hold
 
 static const char* testModeName() {
     switch (g_testMode) {
@@ -518,55 +518,57 @@ void checkButtons() {
     bool b1 = (digitalRead(BTN1_PIN) == LOW);   // active-LOW
     bool b2 = (digitalRead(BTN2_PIN) == LOW);
 
-    // ── BTN1 ──────────────────────────────────────────────────────────────────
+    // ── BTN1: cycle test modes (normal) / change value (in menu, hold-repeat) ──
     if (b1 && !s_b1Prev) {              // press edge
         s_b1Down = now;
         s_b1Rep  = now;
-        s_b1Consumed = false;
     }
-    if (b1) {                           // held
-        if (!netMenu.active()) {
-            // Long-press opens the network menu.
-            if (!s_b1Consumed && (now - s_b1Down) >= LONGPRESS_MS) {
-                netMenu.enter();
-                s_b1Consumed = true;    // suppress the test-cycle on release
-                updateOLED();
-            }
-        } else if (!s_b1Consumed &&
-                   (now - s_b1Down) >= REPEAT_DELAY_MS &&
-                   (now - s_b1Rep)  >= REPEAT_RATE_MS) {
-            s_b1Rep = now;              // hold-to-repeat value changes
-            netMenu.change();
-            updateOLED();
-        }
+    if (b1 && netMenu.active() &&       // hold-to-repeat value change in the menu
+        (now - s_b1Down) >= REPEAT_DELAY_MS && (now - s_b1Rep) >= REPEAT_RATE_MS) {
+        s_b1Rep = now;
+        netMenu.change();
+        updateOLED();
     }
     if (!b1 && s_b1Prev) {              // release edge
         uint32_t held = now - s_b1Down;
-        if (netMenu.active()) {
-            if (!s_b1Consumed && held < REPEAT_DELAY_MS) { netMenu.change(); updateOLED(); }
-        } else if (!s_b1Consumed && held >= BTN_DEBOUNCE_MS) {
-            g_testMode = (g_testMode + 1) % 5;   // short press cycles test pattern
-            Serial.printf("Test mode: %s\n", testModeName());
-            updateOLED();
+        if (held >= BTN_DEBOUNCE_MS) {
+            if (netMenu.active()) {
+                if (held < REPEAT_DELAY_MS) { netMenu.change(); updateOLED(); }  // tap = one step
+            } else {
+                g_testMode = (g_testMode + 1) % 5;   // OFF→RED→GREEN→BLUE→RAINBOW→OFF
+                Serial.printf("Test mode: %s\n", testModeName());
+                updateOLED();
+            }
         }
-        s_b1Consumed = false;
     }
     g_b1HeldMs = b1 ? (now - s_b1Down) : 0;   // diagnostic
     s_b1Prev = b1;
 
-    // ── BTN2 ──────────────────────────────────────────────────────────────────
-    if (b2 && !s_b2Prev && (now - s_b2Last) > BTN_DEBOUNCE_MS) {
-        s_b2Last = now;
-        if (netMenu.active()) {
-            netMenu.next();                      // advance field / commit
-            updateOLED();
-        } else {
-            g_testMode = 0;                      // stop test pattern
-            memset(rawBuf, 0, sizeof(rawBuf));
-            parlio.show(rawBuf, cfg);
-            Serial.println("Test mode: OFF");
+    // ── BTN2: long-press opens the menu; tap stops test / advances field ──
+    if (b2 && !s_b2Prev) {             // press edge
+        s_b2Down = now;
+        s_b2Consumed = false;
+    }
+    if (b2 && !netMenu.active() &&      // long-press opens the OLED network menu
+        !s_b2Consumed && (now - s_b2Down) >= LONGPRESS_MS) {
+        netMenu.enter();
+        s_b2Consumed = true;           // suppress the tap action on release
+        updateOLED();
+    }
+    if (!b2 && s_b2Prev) {             // release edge
+        uint32_t held = now - s_b2Down;
+        if (!s_b2Consumed && held >= BTN_DEBOUNCE_MS) {
+            if (netMenu.active()) {
+                netMenu.next();                    // advance field / commit
+            } else {
+                g_testMode = 0;                    // stop test pattern
+                memset(rawBuf, 0, sizeof(rawBuf));
+                parlio.show(rawBuf, cfg);
+                Serial.println("Test mode: OFF");
+            }
             updateOLED();
         }
+        s_b2Consumed = false;
     }
     s_b2Prev = b2;
 }
