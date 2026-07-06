@@ -1,0 +1,74 @@
+name: KiCad Export
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'hardware/**'
+      - '.github/workflows/kicad-export.yml'
+  pull_request:
+    paths:
+      - 'hardware/**'
+  workflow_dispatch:
+
+env:
+  SCH: hardware/ESP32-P4_16.kicad_sch
+  PCB: hardware/ESP32-P4_16.kicad_pcb
+  NAME: ESP32-P4_16
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0
+      options: --user root
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mark workspace safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Prepare output dir
+        run: mkdir -p out/gerbers
+
+      # --- Design rule checks (reported, don't fail the build: board is WIP) ---
+      - name: ERC (schematic)
+        continue-on-error: true
+        run: kicad-cli sch erc --output "out/${NAME}-erc.rpt" --exit-code-violations "$SCH"
+
+      - name: DRC (PCB)
+        continue-on-error: true
+        run: kicad-cli pcb drc --output "out/${NAME}-drc.rpt" --exit-code-violations "$PCB"
+
+      # --- Documentation ---
+      - name: Schematic PDF
+        run: kicad-cli sch export pdf --output "out/${NAME}-schematic.pdf" "$SCH"
+
+      - name: BOM (CSV)
+        continue-on-error: true
+        run: kicad-cli sch export bom --output "out/${NAME}-bom.csv" "$SCH"
+
+      # --- Fabrication outputs ---
+      - name: Gerbers
+        run: kicad-cli pcb export gerbers --output out/gerbers/ "$PCB"
+
+      - name: Drill files
+        run: kicad-cli pcb export drill --output out/gerbers/ "$PCB"
+
+      - name: Component positions (pick & place)
+        continue-on-error: true
+        run: kicad-cli pcb export pos --output "out/${NAME}-pos.csv" --format csv --units mm "$PCB"
+
+      - name: Zip fabrication package
+        run: cd out && zip -r "${NAME}-gerbers.zip" gerbers >/dev/null && rm -rf gerbers
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}-fabrication
+          path: out/**
+          if-no-files-found: error
