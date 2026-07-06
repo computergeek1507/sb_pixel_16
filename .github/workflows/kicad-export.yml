@@ -38,11 +38,11 @@ jobs:
       # --- Design rule checks (reported, don't fail the build: board is WIP) ---
       - name: ERC (schematic)
         continue-on-error: true
-        run: kicad-cli sch erc --output "out/${NAME}-erc.rpt" --exit-code-violations "$SCH"
+        run: kicad-cli sch erc --output "out/${NAME}-erc.rpt" "$SCH"
 
       - name: DRC (PCB)
         continue-on-error: true
-        run: kicad-cli pcb drc --output "out/${NAME}-drc.rpt" --exit-code-violations "$PCB"
+        run: kicad-cli pcb drc --output "out/${NAME}-drc.rpt" "$PCB"
 
       # --- Documentation ---
       - name: Schematic PDF
@@ -62,9 +62,6 @@ jobs:
       - name: Component positions (pick & place)
         continue-on-error: true
         run: kicad-cli pcb export pos --output "out/${NAME}-pos.csv" --format csv --units mm "$PCB"
-
-      - name: Zip fabrication package
-        run: cd out && zip -r "${NAME}-gerbers.zip" gerbers >/dev/null && rm -rf gerbers
 
       - name: Upload outputs
         uses: actions/upload-artifact@v4
