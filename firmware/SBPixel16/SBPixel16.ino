@@ -48,6 +48,7 @@ uint32_t g_lastPacket  = 0;
 uint32_t g_vin1_mv     = 0;
 uint32_t g_vin2_mv     = 0;
 uint8_t  g_testMode    = 0;
+uint8_t  g_testPort    = 0;
 
 bool              g_parlioOk  = false;
 volatile bool     g_menuActive = false;
@@ -312,6 +313,13 @@ void updateOLED() {
              g_vin2_mv / 1000, (g_vin2_mv % 1000) / 10);
     oled.print(vbuf);
 
+    if (g_testMode == 5) {
+        oled.setCursor(0, 45);
+        oled.print("Port ");
+        oled.print(g_testPort + 1);
+        oled.print(g_testPort % 2 == 0 ? " RED" : " BLUE");
+    }
+
     oled.setCursor(0, 56);
     oled.print("v"); oled.print(FW_VERSION);
     oled.print(" b"); oled.print(FW_BUILD);
@@ -498,12 +506,16 @@ static uint32_t s_b1Rep  = 0;
 static uint32_t s_b2Down = 0;
 static bool     s_b2Consumed = false;   // BTN2 long-press-to-enter consumed this hold
 
+static uint8_t  s_portCycle = 0;        // active port in the port-cycle test (mode 5)
+static uint32_t s_portCycleTimer = 0;
+
 static const char* testModeName() {
     switch (g_testMode) {
         case 1: return "RED";
         case 2: return "GREEN";
         case 3: return "BLUE";
         case 4: return "RAINBOW";
+        case 5: return "PORTS";
         default: return "OFF";
     }
 }
@@ -535,7 +547,8 @@ void checkButtons() {
             if (netMenu.active()) {
                 if (held < REPEAT_DELAY_MS) { netMenu.change(); updateOLED(); }  // tap = one step
             } else {
-                g_testMode = (g_testMode + 1) % 5;   // OFF→RED→GREEN→BLUE→RAINBOW→OFF
+                g_testMode = (g_testMode + 1) % 6;   // OFF→RED→GREEN→BLUE→RAINBOW→PORTS→OFF
+                if (g_testMode == 5) { s_portCycle = 0; s_portCycleTimer = now; }
                 Serial.printf("Test mode: %s\n", testModeName());
                 updateOLED();
             }
@@ -594,6 +607,31 @@ static void hsv2rgb(uint8_t h, uint8_t v, uint8_t &r, uint8_t &g, uint8_t &b) {
 }
 
 void applyTestPattern() {
+    // Mode 5: light one port at a time for PORT_CYCLE_MS, cycling all ports.
+    // Odd port numbers (1,3,5,…) red, even (2,4,6,…) blue.
+    if (g_testMode == 5) {
+        uint32_t now = millis();
+        if (now - s_portCycleTimer >= PORT_CYCLE_MS) {
+            s_portCycleTimer = now;
+            s_portCycle = (s_portCycle + 1) % NUM_PORTS;
+        }
+        g_testPort = s_portCycle;
+        for (int port = 0; port < NUM_PORTS; port++) {
+            uint8_t r = 0, b = 0;
+            if (port == s_portCycle) {
+                if (port % 2 == 0) r = 255;   // port 1,3,5,… (odd number) → red
+                else               b = 255;   // port 2,4,6,… (even number) → blue
+            }
+            int pixN = cfg.ports[port].pixelCount;
+            for (int px = 0; px < pixN; px++) {
+                rawBuf[port][px * 3 + 0] = r;
+                rawBuf[port][px * 3 + 1] = 0;
+                rawBuf[port][px * 3 + 2] = b;
+            }
+        }
+        return;
+    }
+
     for (int port = 0; port < NUM_PORTS; port++) {
         int pixN = cfg.ports[port].pixelCount;
         for (int px = 0; px < pixN; px++) {

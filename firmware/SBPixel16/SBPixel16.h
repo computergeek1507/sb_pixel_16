@@ -2,7 +2,7 @@
 
 // ── Firmware version ──────────────────────────────────────────────────────────
 #define FW_VERSION    "1.0.0"                 // semantic version (bump on release)
-#define FW_BUILD      15                      // build number (bump each flashed build)
+#define FW_BUILD      16                      // build number (bump each flashed build)
 #define FW_BUILD_DATE (__DATE__ " " __TIME__) // compile timestamp = unique build id
 
 // ── Board / port constants ────────────────────────────────────────────────────
@@ -11,6 +11,7 @@
 #define MAX_PIXELS      340     // max pixels per port; increase if needed (affects FPS)
 #define DATA_TIMEOUT    1000    // ms before clearing pixels on no data
 #define REFRESH         25      // ms between FastLED.show() calls (~40fps target)
+#define PORT_CYCLE_MS   2000    // port-cycle test: ms each port stays lit
 #define HTTP_PORT       80
 #define E131_UDP_PORT   5568
 #define DDP_UDP_PORT    4048
@@ -157,8 +158,9 @@ extern uint32_t g_lastPacket;
 extern uint32_t g_vin1_mv;
 extern uint32_t g_vin2_mv;
 
-// Test mode: 0=off 1=red 2=green 3=blue 4=rainbow
+// Test mode: 0=off 1=red 2=green 3=blue 4=rainbow 5=port-cycle
 extern uint8_t  g_testMode;
+extern uint8_t  g_testPort;   // active port (0-based) in the port-cycle test
 
 // True if the PARLIO WS2812 driver initialized OK (else pixel output is dead).
 extern bool g_parlioOk;
