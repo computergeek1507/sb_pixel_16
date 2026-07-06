@@ -250,6 +250,13 @@ void setupEthernet() {
 
 // ── OLED ──────────────────────────────────────────────────────────────────────
 
+// 8x11 SD-card glyph (solid body with a notched top-right corner), shown in the
+// top-right of the header while a card is mounted.
+static const uint8_t SD_ICON[] = {
+    0b11111000, 0b11111100, 0b11111110, 0b11111111, 0b11111111, 0b11100111,
+    0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111,
+};
+
 void updateOLED() {
     if (!s_oledFound) return;
     if (netMenu.active()) { netMenu.render(oled); return; }
@@ -265,6 +272,8 @@ void updateOLED() {
         oled.print(testModeName());
         oled.print("]");
     }
+    if (g_sdMounted)
+        oled.drawBitmap(120, 0, SD_ICON, 8, 11, SSD1306_WHITE);
 
     oled.setCursor(0, 9);
     if (s_ethConnected) {
