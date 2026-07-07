@@ -8429,7 +8429,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Enter BTN"
+		(property "Value" "Test"
 			(at 200.6092 144.653 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10083,7 +10083,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Down BTN"
+		(property "Value" "Setup"
 			(at 217.1192 144.399 90)
 			(show_name no)
 			(do_not_autoplace no)

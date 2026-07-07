@@ -543,7 +543,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.25,
+        "clearance": 0.2,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -561,7 +561,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.25,
+        "clearance": 0.15,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -597,7 +597,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.2,
+        "clearance": 0.15,
         "diff_pair_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
@@ -1032,7 +1032,7 @@
         "uuid": "d66d3c12-11ce-4566-9a45-962e329503d8"
       }
     ],
-    "used_designators": "",
+    "used_designators": "J20",
     "variants": []
   },
   "sheets": [

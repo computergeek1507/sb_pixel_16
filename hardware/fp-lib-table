@@ -7,4 +7,5 @@
 	(lib (name "LMR38020S") (type "KiCad") (uri "${KIPRJMOD}/libraries/LMR38020SDDAR/LMR38020S.pretty") (options "") (descr ""))
 	(lib (name "VLS5045EX_150M") (type "KiCad") (uri "${KIPRJMOD}/libraries/VLS5045EX_150M") (options "") (descr ""))
 	(lib (name "MKDS1_2-3.81") (type "KiCad") (uri "${KIPRJMOD}/libraries/MKDS1_2-3.81/MKDS1_2-3.81.pretty") (options "") (descr ""))
+	(lib (name "1864299") (type "KiCad") (uri "${KIPRJMOD}/libraries/1864299") (options "") (descr ""))
 )
