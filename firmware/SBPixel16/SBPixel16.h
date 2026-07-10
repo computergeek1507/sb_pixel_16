@@ -2,7 +2,7 @@
 
 // ── Firmware version ──────────────────────────────────────────────────────────
 #define FW_VERSION    "1.0.0"                 // semantic version (bump on release)
-#define FW_BUILD      16                      // build number (bump each flashed build)
+#define FW_BUILD      17                      // build number (bump each flashed build)
 #define FW_BUILD_DATE (__DATE__ " " __TIME__) // compile timestamp = unique build id
 
 // ── Board / port constants ────────────────────────────────────────────────────
@@ -83,6 +83,7 @@
 #define SD_D3_PIN   42
 #define SD_PWR_PIN  45      // Q1 high-side P-FET: drive LOW to power the card
 #define FSEQ_DIR    "/sequences"   // sequences played in a loop from here
+#define SD_CONFIG_FILE "/config.json"   // optional config override, SD card root
 
 // ── ADC inputs ────────────────────────────────────────────────────────────────
 #define VIN1_PIN    20   // VIN1_ADC

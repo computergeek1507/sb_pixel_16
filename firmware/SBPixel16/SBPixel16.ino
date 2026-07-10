@@ -199,6 +199,54 @@ void loadConfig() {
         Serial.println("Config parse failed — using defaults");
 }
 
+// If the SD card has a /config.json, merge it over the current config (only
+// fields present in the file are changed) and persist the result to LittleFS.
+// Call after fseq.begin() — SD must already be mounted, and PARLIO must already
+// be sized from the LittleFS config (setupParlio() runs before fseq.begin()).
+// pixelCount/nullPixels/grouping determine PARLIO's DMA buffer size, which is
+// fixed at parlio.begin() and can't be resized live — if the SD config changes
+// any of those, reboot so the next boot sizes PARLIO correctly from the start.
+void loadConfigFromSD() {
+    if (!g_sdMounted) return;
+    if (!SD_MMC.exists(SD_CONFIG_FILE)) {
+        Serial.println("SD: no config.json found");
+        return;
+    }
+    File f = SD_MMC.open(SD_CONFIG_FILE, FILE_READ);
+    if (!f) { Serial.println("SD: config.json open failed"); return; }
+    String json = f.readString();
+    f.close();
+
+    struct BufShape { uint16_t pixelCount; uint8_t nullPixels; uint8_t grouping; };
+    BufShape before[NUM_PORTS];
+    for (int i = 0; i < NUM_PORTS; i++)
+        before[i] = { cfg.ports[i].pixelCount, cfg.ports[i].nullPixels, cfg.ports[i].grouping };
+
+    if (!jsonToConfig(json)) {
+        Serial.println("SD: config.json parse failed — ignoring");
+        return;
+    }
+
+    bool resizesBuffer = false;
+    for (int i = 0; i < NUM_PORTS; i++) {
+        if (cfg.ports[i].pixelCount != before[i].pixelCount ||
+            cfg.ports[i].nullPixels != before[i].nullPixels ||
+            cfg.ports[i].grouping   != before[i].grouping) {
+            resizesBuffer = true;
+            break;
+        }
+    }
+
+    saveConfig();   // mirror the merged config to LittleFS either way
+    Serial.println("SD: config.json loaded");
+
+    if (resizesBuffer) {
+        Serial.println("SD: config changes pixel/null/grouping — rebooting to resize PARLIO");
+        delay(200);
+        ESP.restart();
+    }
+}
+
 // ── Ethernet ──────────────────────────────────────────────────────────────────
 
 void ethEvent(arduino_event_id_t event) {
@@ -717,6 +765,7 @@ void setup() {
     // lazily in the loop) is what actually works on this board; PARLIO initializes
     // first so it keeps its DMA. Gives SD status in the web UI and enables FSEQ.
     fseq.begin();
+    loadConfigFromSD();    // optional /config.json on the card overrides LittleFS
     powerUpTest();
     setupEthernet();
     setupWebServer();
