@@ -87,6 +87,30 @@
   </p>
 </div>
 
+<div class="card">
+  <fieldset>
+    <legend>Backup / Restore Config</legend>
+    <p style="font-size:0.85em;color:#888;margin:0 0 0.8em;">
+      Exports/imports the full configuration — network, protocol, all 16 ports,
+      and DMX settings.
+    </p>
+    <div class="row" style="align-items:center;gap:1em;margin-bottom:0.8em;">
+      <button type="button" onclick="exportConfig()">Export Config</button>
+      <label for="importFile" style="display:inline-block;padding:0.6em 1.2em;
+             background:#0f3460;border:1px solid #e94560;border-radius:6px;
+             cursor:pointer;margin:0;">Choose File</label>
+      <input type="file" id="importFile" accept="application/json,.json"
+             style="display:none" onchange="onImportFileChosen()">
+    </div>
+    <div id="importFileName" style="color:#888;font-size:0.85em;margin-bottom:0.8em;"></div>
+    <button type="button" id="importBtn" onclick="importConfig()" disabled>Import &amp; Apply</button>
+    <p style="font-size:0.8em;color:#888;margin:0.6em 0 0;">
+      Import overwrites the entire configuration. Pixel count / null pixels /
+      grouping changes take effect after reboot.
+    </p>
+  </fieldset>
+</div>
+
 <script>
 let cfg = null;
 
@@ -148,6 +172,78 @@ function reboot() {
   fetch('/api/reboot', { method: 'POST' });
   document.getElementById('msg').textContent = 'Rebooting…';
   document.getElementById('msg').className = 'ok';
+}
+
+function exportConfig() {
+  fetch('/api/config').then(r => r.json()).then(d => {
+    const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sbpixel16-config-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }).catch(() => {
+    const el = document.getElementById('msg');
+    el.textContent = 'Export failed.'; el.className = 'err';
+  });
+}
+
+let importJsonText = null;
+
+function onImportFileChosen() {
+  const file = document.getElementById('importFile').files[0];
+  const nameEl = document.getElementById('importFileName');
+  const btn = document.getElementById('importBtn');
+  importJsonText = null;
+  btn.disabled = true;
+  if (!file) { nameEl.textContent = ''; return; }
+  nameEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      JSON.parse(reader.result);   // validate before enabling Import
+      importJsonText = reader.result;
+      btn.disabled = false;
+    } catch (e) {
+      const el = document.getElementById('msg');
+      el.textContent = 'Selected file is not valid JSON.'; el.className = 'err';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importConfig() {
+  if (!importJsonText) return;
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: importJsonText
+  }).then(r => r.json()).then(d => {
+    const el = document.getElementById('msg');
+    if (!d.ok) { el.textContent = 'Import error: ' + (d.error || 'unknown'); el.className = 'err'; return; }
+    el.textContent = 'Config imported. Reboot to apply pixel/port changes.';
+    el.className = 'ok';
+    fetch('/api/config').then(r => r.json()).then(nd => {
+      cfg = nd;
+      const dhcp = !!(nd.network && nd.network.dhcp);
+      document.getElementById('dhcp').checked = dhcp;
+      document.getElementById('ip').value     = nd.network.ip;
+      document.getElementById('subnet').value = nd.network.subnet;
+      document.getElementById('gw').value     = nd.network.gateway;
+      document.getElementById('ustart').value = nd.universeStart;
+      document.getElementById('usize').value  = nd.universeSize;
+      document.querySelector(`input[name=proto][value="${nd.protocol}"]`).checked = true;
+      toggleDhcp(dhcp);
+      refreshProtoUI();
+    });
+  }).catch(() => {
+    const el = document.getElementById('msg');
+    el.textContent = 'Import failed (network error).'; el.className = 'err';
+  });
 }
 </script>
 </body>
